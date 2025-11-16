@@ -1,0 +1,24 @@
+[google_search]
+api_key = "******"
+search_engine_id = "******"
+
+[scrapfly]
+api_key = "scp-test-******"
+
+[rocketmq]
+name_server = "127.0.0.1:9876"
+consumer_group = "crawler_consumer"
+producer_group = "crawler_producer"
+consumer_topic = "crawler_tasks"
+producer_topic = "crawler_tasks_result"
+
+[log]
+level = "info"
+file_path = "./logs/cy_crawler.log"
+max_size = 100
+max_backups = 10
+max_age = 30
+
+[application]
+python_script_path = "./scripts/run_crawler.py"
+heartbeat_interval = 10
