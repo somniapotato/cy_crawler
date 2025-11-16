@@ -131,33 +131,49 @@ heartbeat_interval = 10
 成功响应：
 ```json
 {
-  "success": true,
-  "data": {
-    "status": "success",
-    "crawled_data": {
-      "company_name": "biogenex",
-      "website": "https://example.com",
-      "type": "company",
-      "processed_at": 1704067200,
-      "email": "contact@example.com",
-      "country": "US"
+    "level": "info",
+    "msg": "Successfully processed task",
+    "result": {
+        "overview": {
+            "Company size": "51-200 employees",
+            "Founded": "1981",
+            "Headquarters": "Fremont, California",
+            "Industry": "Biotechnology Research",
+            "Specialties": "Molecular diagnostics, Antibodies, Immunohistochemistry, IHC Automation, In Situ hybridization, IVD, IHC, ISH, Reagents, and miRNA",
+            "Type": "Privately Held",
+            "Website": "",
+            "description": "BioGenex designs, develops, and commercializes advanced fully-automated molecular pathology systems for cancer diagnosis, prognosis, personalized medicine, and life science research. The recent introduction of our eFISHency integrated workflow solution for FISH laboratories and miRNA system for characterization of cancer of unknown primary (CUP) and for undifferentiated tumors is a game changer that has no rival in the industry. Our fully automated molecular pathology work stations are the most advanced system globally. Our customer focused approach, with premier after sales support and excellent technical service, provides the best in class customer care. Our spirit of innovation drives us to deliver cutting edge technology, years ahead of our competition, and the finest systems for life science research and diagnostics.\r\n\r\nWith a team of accomplished technical, business and customer support professionals, BioGenex strives to reach the pinnacle of the global molecular medicine industry by offering cost-effective solutions for life sciences research and personalized medicine. Additionally, the partnership of BioGenex with top-notch universities, hospitals, and the pharmaceutical and biotechnology industry drives its innovative research and product development activities. The company is also known for its pre- and post-sales customer support that complements the high quality products and solutions offered by the firm.",
+            "logo": {
+                "@type": "ImageObject",
+                "contentUrl": "https://media.licdn.com/dms/image/v2/D4D0BAQGZvifo49RfDw/company-logo_200_200/company-logo_200_200/0/1707196521911/biogenex_logo?e=2147483647\u0026v=beta\u0026t=bJjQEGIvEuu1PvWOh3KvIjPKflQ1YiEuLapkGFp8wpk",
+                "description": "BioGenex"
+            },
+            "mainAddress": {
+                "addressCountry": "US",
+                "addressLocality": "Fremont",
+                "addressRegion": "California",
+                "postalCode": "CA 94538",
+                "streetAddress": "48810 Kato Road",
+                "type": "PostalAddress"
+            },
+            "name": "BioGenex",
+            "numberOfEmployees": 240,
+            "url": "https://www.linkedin.com/company/biogenex"
+        }
     },
-    "metadata": {
-      "pages_crawled": 5,
-      "data_points": 12,
-      "processing_time": 2.5
-    }
-  }
+    "task": {
+        "type": "company",
+        "name": "biogenex",
+        "url": "test.com",
+        "email": "test@test.com",
+        "country": "US"
+    },
+    "time": "2025-11-17T04:36:11+08:00"
 }
 ```
 
 错误响应：
-```json
-{
-  "success": false,
-  "error": "Python script execution failed: exit status 1"
-}
-```
+to do
 
 ## 测试工具
 
