@@ -65,9 +65,11 @@ cy_crawler/
    ```
 
 4. **配置环境变量**
+  ```bash
 export GOOGLE_SEARCH_API_KEY="your_google_api_key"
 export GOOGLE_SEARCH_ENGINE_ID="your_search_engine_id"
 export SCRAPFLY_API_KEY="your_scrapfly_api_key
+   ```
 
 5. **构建项目**
    ```bash
