@@ -1,9 +1,5 @@
 [google_search]
-api_key = "******"
-search_engine_id = "******"
 
-[scrapfly]
-api_key = "scp-test-******"
 
 [rocketmq]
 name_server = "127.0.0.1:9876"

@@ -48,14 +48,17 @@ func main() {
 		result, err := proc.ProcessTask(task)
 		if err != nil {
 			logger.Logger.WithFields(logrus.Fields{
-				"task":  task,
-				"error": err.Error(),
+				"requestId": task.RequestID,
+				"task":      task,
+				"error":     err.Error(),
 			}).Error("Task processing failed")
 
-			// 发送失败结果
+			// 发送失败结果 - 使用新的ResultMessage格式
 			errorResult := &types.ResultMessage{
-				Success: false,
-				Error:   err.Error(),
+				Code:    500,
+				Message: err.Error(),
+				Data:    nil,
+				Params:  task,
 			}
 			return producer.SendResult(errorResult)
 		}
@@ -64,7 +67,7 @@ func main() {
 		return producer.SendResult(result)
 	}
 
-	// 初始化消费者
+	// 初始化消费者 - 使用FinalConsumer
 	consumer, err := mq.NewConsumer(cfg, messageHandler)
 	if err != nil {
 		logger.Logger.WithError(err).Fatal("Failed to create consumer")

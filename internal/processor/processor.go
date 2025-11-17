@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"bytes"
 	"cy_crawler/internal/logger"
 	"cy_crawler/internal/types"
 	"encoding/json"
@@ -25,73 +26,117 @@ func NewProcessor(pythonScriptPath string) *Processor {
 // ProcessTask 处理任务
 func (p *Processor) ProcessTask(task *types.TaskMessage) (*types.ResultMessage, error) {
 	logger.Logger.WithFields(logrus.Fields{
-		"type":    task.Type,
-		"name":    task.Name,
-		"url":     task.URL,
-		"email":   task.Email,
-		"country": task.Country,
+		"requestId":   task.RequestID,
+		"tenantId":    task.TenantID,
+		"companyName": task.CompanyName,
+		"type":        task.Type,
+		"location":    task.Location,
 	}).Info("Processing task")
+
+	// 根据type决定name参数
+	nameParam := task.CompanyName
+	if task.Type == 2 { // 个人
+		nameParam = task.ContactPersonName
+	}
 
 	// 构建命令行参数
 	args := []string{
 		p.pythonScriptPath,
-		"--type", task.Type,
-		"--name", task.Name,
-		"--url", task.URL,
+		"--type", getTypeString(task.Type),
+		"--name", nameParam,
+		"--url", task.CompanyWebsite,
 	}
 
-	if task.Email != "" {
-		args = append(args, "--email", task.Email)
+	if task.EmailAddress != "" {
+		args = append(args, "--email", task.EmailAddress)
 	}
-	if task.Country != "" {
-		args = append(args, "--country", task.Country)
+	if task.Location != "" {
+		args = append(args, "--country", task.Location)
 	}
 
 	// 执行Python脚本
 	cmd := exec.Command("python", args...)
-	output, err := cmd.CombinedOutput()
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	output := stdout.Bytes()
+	errorOutput := stderr.Bytes()
 
 	if err != nil {
 		logger.Logger.WithFields(logrus.Fields{
-			"task":   task,
-			"error":  err.Error(),
-			"output": string(output),
+			"requestId": task.RequestID,
+			"error":     err.Error(),
+			"stdout":    string(output),
+			"stderr":    string(errorOutput),
 		}).Error("Failed to execute Python script")
 
 		return &types.ResultMessage{
-			Success: false,
-			Error:   fmt.Sprintf("Python script execution failed: %v", err),
+			Code:    500,
+			Message: fmt.Sprintf("Python script execution failed: %v", err),
+			Data:    nil,
+			Params:  task,
 		}, err
 	}
 
-	// 清理输出：移除可能的多余字符
+	// 如果有stderr输出但命令成功，记录警告
+	if len(errorOutput) > 0 {
+		logger.Logger.WithFields(logrus.Fields{
+			"requestId": task.RequestID,
+			"stderr":    string(errorOutput),
+		}).Warn("Python script produced stderr output")
+	}
+
+	// 清理输出
 	cleanedOutput := cleanPythonOutput(output)
 
 	// 解析Python脚本输出
-	var resultData interface{}
-	if err := json.Unmarshal([]byte(cleanedOutput), &resultData); err != nil {
+	var pythonResult types.PythonResult
+	if err := json.Unmarshal([]byte(cleanedOutput), &pythonResult); err != nil {
 		logger.Logger.WithFields(logrus.Fields{
-			"task":          task,
+			"requestId":     task.RequestID,
 			"rawOutput":     string(output),
 			"cleanedOutput": cleanedOutput,
 			"error":         err.Error(),
 		}).Error("Failed to parse Python script output")
 
 		return &types.ResultMessage{
-			Success: false,
-			Error:   fmt.Sprintf("Failed to parse script output: %v. Raw output: %s", err, string(output)),
+			Code:    500,
+			Message: fmt.Sprintf("Failed to parse script output: %v", err),
+			Data:    nil,
+			Params:  task,
 		}, err
 	}
 
+	// 组装最终结果
+	finalData := []types.FinalResult{
+		{
+			Sources: pythonResult.Sources,
+		},
+	}
+
 	logger.Logger.WithFields(logrus.Fields{
-		"task":   task,
-		"result": resultData,
+		"requestId": task.RequestID,
+		"sources":   len(pythonResult.Sources),
 	}).Info("Successfully processed task")
 
 	return &types.ResultMessage{
-		Success: true,
-		Data:    resultData,
+		Code:    200,
+		Message: "success",
+		Data:    finalData,
+		Params:  task,
 	}, nil
+}
+
+// getTypeString 将type数字转换为字符串
+func getTypeString(typeNum int) string {
+	if typeNum == 1 {
+		return "company"
+	} else if typeNum == 2 {
+		return "person"
+	}
+	return "unknown"
 }
 
 // cleanPythonOutput 清理Python脚本输出

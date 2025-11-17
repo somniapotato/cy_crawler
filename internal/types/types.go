@@ -1,20 +1,37 @@
 package types
 
-// TaskMessage 从MQ接收的任务消息
+// TaskMessage 从MQ接收的任务消息（新格式）
 type TaskMessage struct {
-	Type    string `json:"type"`
-	Name    string `json:"name"`
-	URL     string `json:"url"`
-	Email   string `json:"email"`
-	Country string `json:"country"`
+	RequestID          string `json:"requestId"`
+	RequestTime        string `json:"requestTime"`
+	TenantID           string `json:"tenantId"`
+	CompanyName        string `json:"companyName"`
+	CompanyWebsite     string `json:"companyWebsite"`
+	ContactPersonName  string `json:"contactPersonName"`
+	EmailAddress       string `json:"emailAddress"`
+	Type               int    `json:"type"` // 1: 公司, 2: 个人
+	Location           string `json:"location"`
+	Position           string `json:"position"`
+	ImportExperience   string `json:"importExperience"`
+	IndustryExperience string `json:"industryExperience"`
 }
 
-// ResultMessage 处理结果消息
+// ResultMessage 处理结果消息（新格式）
 type ResultMessage struct {
-	Success bool        `json:"success"`
-	Data    interface{} `json:"data,omitempty"`
-	Error   string      `json:"error,omitempty"`
-	TaskID  string      `json:"task_id,omitempty"`
+	Code    int          `json:"code"`
+	Message string       `json:"message"`
+	Data    interface{}  `json:"data"`
+	Params  *TaskMessage `json:"params"`
+}
+
+// PythonResult Python脚本返回的数据结构
+type PythonResult struct {
+	Sources map[string]interface{} `json:"sources"`
+}
+
+// FinalResult 最终返回给MQ的数据结构
+type FinalResult struct {
+	Sources map[string]interface{} `json:"sources"`
 }
 
 // Config 应用配置

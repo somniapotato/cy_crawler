@@ -97,14 +97,23 @@ func (c *Consumer) handleMessage(msg *primitive.MessageExt, handler func(*types.
 
 // validateTaskMessage 验证任务消息
 func (c *Consumer) validateTaskMessage(msg *types.TaskMessage) error {
-	if msg.Type == "" {
-		return fmt.Errorf("type field is required")
+	if msg.RequestID == "" {
+		return fmt.Errorf("requestId field is required")
 	}
-	if msg.Name == "" {
-		return fmt.Errorf("name field is required")
+	if msg.TenantID == "" {
+		return fmt.Errorf("tenantId field is required")
 	}
-	if msg.URL == "" {
-		return fmt.Errorf("url field is required")
+	if msg.Type != 1 && msg.Type != 2 {
+		return fmt.Errorf("type must be 1 (company) or 2 (person)")
+	}
+	if msg.Type == 1 && msg.CompanyName == "" {
+		return fmt.Errorf("companyName is required when type is 1 (company)")
+	}
+	if msg.Type == 2 && msg.ContactPersonName == "" {
+		return fmt.Errorf("contactPersonName is required when type is 2 (person)")
+	}
+	if msg.CompanyWebsite == "" {
+		return fmt.Errorf("companyWebsite field is required")
 	}
 	return nil
 }

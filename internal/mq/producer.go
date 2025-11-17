@@ -63,12 +63,22 @@ func (p *Producer) SendResult(result *types.ResultMessage) error {
 	}
 
 	logger.Logger.WithFields(logrus.Fields{
-		"topic":   msg.Topic,
-		"msgId":   res.MsgID,
-		"success": result.Success,
+		"topic":     msg.Topic,
+		"msgId":     res.MsgID,
+		"code":      result.Code,
+		"message":   result.Message,
+		"requestId": getRequestID(result.Params),
 	}).Info("Successfully sent result message")
 
 	return nil
+}
+
+// getRequestID 从params中获取requestId
+func getRequestID(params *types.TaskMessage) string {
+	if params != nil {
+		return params.RequestID
+	}
+	return "unknown"
 }
 
 // Shutdown 关闭生产者
