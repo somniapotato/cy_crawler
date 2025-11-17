@@ -51,17 +51,22 @@ scrapfly_config = ScrapflyConfig()
 SCRAPFLY = ScrapflyClient(key=scrapfly_config.api_key)
 
 BASE_CONFIG = {
+    # bypass linkedin.com web scraping blocking
     "asp": True,
+    # set the proxy country to US
     "country": "US",
     "headers": {
         "Accept-Language": "en-US,en;q=0.5"
-    }
+    },
+    "render_js": True,
+    "proxy_pool": "public_residential_pool"    
 }
 
 def strip_text(text):
     """remove extra spaces while handling None values"""
     return text.strip() if text != None else text
 
+# ========== 公司相关函数 ==========
 def parse_company_life(response: ScrapeApiResponse) -> Dict:
     """parse company life page"""
     selector = response.selector
@@ -209,3 +214,66 @@ async def scrape_company_overview(urls: List[str]) -> List[Dict]:
 
     log.success(f"scraped {len(data)} companies from Linkedin")
     return data
+
+# ========== 个人资料相关函数 ==========
+def refine_profile(data: Dict) -> Dict: 
+    """refine and clean the parsed profile data"""
+    parsed_data = {}
+    
+    # 查找Person类型的数据
+    profile_data_list = [key for key in data.get("@graph", []) if key.get("@type") == "Person"]
+    if profile_data_list:
+        profile_data = profile_data_list[0]
+        # 如果worksFor存在且是列表，只取第一个工作经历
+        if "worksFor" in profile_data and isinstance(profile_data["worksFor"], list) and profile_data["worksFor"]:
+            profile_data["worksFor"] = [profile_data["worksFor"][0]]
+        parsed_data["profile"] = profile_data
+    else:
+        parsed_data["profile"] = {}
+    
+    # 查找文章/帖子数据
+    articles = [key for key in data.get("@graph", []) if key.get("@type") == "Article"]
+    parsed_data["posts"] = articles
+    
+    return parsed_data
+
+def parse_profile(response: ScrapeApiResponse) -> Dict:
+    """parse profile data from hidden script tags"""
+    try:
+        selector = response.selector
+        script_element = selector.xpath("//script[@type='application/ld+json']/text()")
+        
+        if not script_element:
+            log.warning("No JSON-LD data found in profile page")
+            return {"profile": {}, "posts": []}
+            
+        data = json.loads(script_element.get())
+        refined_data = refine_profile(data)
+        return refined_data
+        
+    except Exception as e:
+        log.error(f"Error parsing profile data: {e}")
+        return {"profile": {}, "posts": []}
+
+async def scrape_profile(urls: List[str]) -> List[Dict]:
+    """scrape public linkedin profile pages"""
+    log.info(f"Starting to scrape {len(urls)} profile pages")
+    to_scrape = [ScrapeConfig(url, **BASE_CONFIG) for url in urls]
+    data = []
+    
+    # scrape the URLs concurrently
+    async for response in SCRAPFLY.concurrent_scrape(to_scrape):
+        try:
+            profile_data = parse_profile(response)
+            data.append(profile_data)
+            log.info(f"Successfully scraped profile")
+        except Exception as e:
+            log.error("An error occurred while scraping profile pages", exc_info=True)
+            continue
+            
+    log.success(f"scraped {len(data)} profiles from Linkedin")
+    return data
+
+async def scrape_profile_overview(urls: List[str]) -> List[Dict]:
+    """scrape public linkedin profile pages - overview only (alias for scrape_profile)"""
+    return await scrape_profile(urls)

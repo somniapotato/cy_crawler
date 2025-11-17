@@ -133,44 +133,25 @@ heartbeat_interval = 10
 成功响应：
 ```json
 {
-    "level": "info",
-    "msg": "Successfully processed task",
-    "result": {
-        "overview": {
-            "Company size": "51-200 employees",
-            "Founded": "1981",
-            "Headquarters": "Fremont, California",
-            "Industry": "Biotechnology Research",
-            "Specialties": "Molecular diagnostics, Antibodies, Immunohistochemistry, IHC Automation, In Situ hybridization, IVD, IHC, ISH, Reagents, and miRNA",
-            "Type": "Privately Held",
-            "Website": "",
-            "description": "BioGenex designs, develops, and commercializes advanced fully-automated molecular pathology systems for cancer diagnosis, prognosis, personalized medicine, and life science research. The recent introduction of our eFISHency integrated workflow solution for FISH laboratories and miRNA system for characterization of cancer of unknown primary (CUP) and for undifferentiated tumors is a game changer that has no rival in the industry. Our fully automated molecular pathology work stations are the most advanced system globally. Our customer focused approach, with premier after sales support and excellent technical service, provides the best in class customer care. Our spirit of innovation drives us to deliver cutting edge technology, years ahead of our competition, and the finest systems for life science research and diagnostics.\r\n\r\nWith a team of accomplished technical, business and customer support professionals, BioGenex strives to reach the pinnacle of the global molecular medicine industry by offering cost-effective solutions for life sciences research and personalized medicine. Additionally, the partnership of BioGenex with top-notch universities, hospitals, and the pharmaceutical and biotechnology industry drives its innovative research and product development activities. The company is also known for its pre- and post-sales customer support that complements the high quality products and solutions offered by the firm.",
-            "logo": {
-                "@type": "ImageObject",
-                "contentUrl": "https://media.licdn.com/dms/image/v2/D4D0BAQGZvifo49RfDw/company-logo_200_200/company-logo_200_200/0/1707196521911/biogenex_logo?e=2147483647\u0026v=beta\u0026t=bJjQEGIvEuu1PvWOh3KvIjPKflQ1YiEuLapkGFp8wpk",
-                "description": "BioGenex"
-            },
-            "mainAddress": {
-                "addressCountry": "US",
-                "addressLocality": "Fremont",
-                "addressRegion": "California",
-                "postalCode": "CA 94538",
-                "streetAddress": "48810 Kato Road",
-                "type": "PostalAddress"
-            },
-            "name": "BioGenex",
-            "numberOfEmployees": 240,
-            "url": "https://www.linkedin.com/company/biogenex"
-        }
-    },
-    "task": {
-        "type": "company",
-        "name": "biogenex",
-        "url": "test.com",
-        "email": "test@test.com",
-        "country": "US"
-    },
-    "time": "2025-11-17T04:36:11+08:00"
+    "code": 200,
+    "message": "success",
+    "data": [
+        //爬虫获得的数据
+    ],
+    "params": { //这部分都是从MQ 接受的json透传过来的
+        "requestId": "6352d81f-1217-4c73-aa11-4031a1daf7c0",
+        "requestTime": "2025-11-23 22:22:22",
+        "tenantId": "122",
+        "companyName": "LEXMARK INTERNATIONAL DE ARGENTINA INC SUCURSAL ARGENTINA",
+        "companyWebsite": "www.baidu.com",
+        "contactPersonName": "张三",
+        "emailAddress": "duxu111@126.com",
+        "type": 1,
+        "location": "意大利",
+        "position": "General Manager",
+        "importExperience": "有",
+        "industryExperience": "互联网"
+    }
 }
 ```
 
@@ -203,6 +184,8 @@ make run       # 运行项目
 make clean     # 清理构建文件
 make test      # 运行测试
 make setup     # 安装依赖
+
+make clean & make build & make run
 ```
 
 ## 故障排除

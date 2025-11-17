@@ -54,6 +54,11 @@ func (p *Processor) ProcessTask(task *types.TaskMessage) (*types.ResultMessage, 
 		args = append(args, "--country", task.Location)
 	}
 
+	logger.Logger.WithFields(logrus.Fields{
+		"requestId": task.RequestID,
+		"args":      args,
+	}).Debug("Python script arguments")
+
 	// 执行Python脚本
 	cmd := exec.Command("python", args...)
 	var stdout, stderr bytes.Buffer
@@ -63,6 +68,16 @@ func (p *Processor) ProcessTask(task *types.TaskMessage) (*types.ResultMessage, 
 	err := cmd.Run()
 	output := stdout.Bytes()
 	errorOutput := stderr.Bytes()
+
+	// 记录Python脚本的原始输出
+	logger.Logger.WithFields(logrus.Fields{
+		"requestId":    task.RequestID,
+		"stdoutLength": len(output),
+		"stderrLength": len(errorOutput),
+		"stdoutRaw":    string(output),
+		"stderrRaw":    string(errorOutput),
+		"commandError": err,
+	}).Info("Python script execution completed")
 
 	if err != nil {
 		logger.Logger.WithFields(logrus.Fields{
@@ -90,6 +105,11 @@ func (p *Processor) ProcessTask(task *types.TaskMessage) (*types.ResultMessage, 
 
 	// 清理输出
 	cleanedOutput := cleanPythonOutput(output)
+	logger.Logger.WithFields(logrus.Fields{
+		"requestId":      task.RequestID,
+		"originalOutput": string(output),
+		"cleanedOutput":  cleanedOutput,
+	}).Debug("Python output after cleaning")
 
 	// 解析Python脚本输出
 	var pythonResult types.PythonResult
@@ -109,24 +129,49 @@ func (p *Processor) ProcessTask(task *types.TaskMessage) (*types.ResultMessage, 
 		}, err
 	}
 
-	// 组装最终结果
-	finalData := []types.FinalResult{
-		{
-			Sources: pythonResult.Sources,
-		},
-	}
-
+	// 记录解析后的Python结果
 	logger.Logger.WithFields(logrus.Fields{
-		"requestId": task.RequestID,
-		"sources":   len(pythonResult.Sources),
-	}).Info("Successfully processed task")
+		"requestId":    task.RequestID,
+		"sourcesCount": len(pythonResult.Sources),
+		"sourcesKeys":  getMapKeys(pythonResult.Sources),
+		"pythonResult": pythonResult,
+	}).Info("Python result parsed successfully")
 
-	return &types.ResultMessage{
+	// 组装最终结果 - 关键修改！
+	// 直接将 sources 的内容放到 data 数组中
+	finalData := []map[string]interface{}{pythonResult.Sources}
+
+	// 记录最终组装的数据
+	logger.Logger.WithFields(logrus.Fields{
+		"requestId":    task.RequestID,
+		"finalData":    finalData,
+		"sourcesCount": len(pythonResult.Sources),
+	}).Info("Final data assembled")
+
+	// 记录即将发送的完整结果
+	resultMessage := &types.ResultMessage{
 		Code:    200,
 		Message: "success",
-		Data:    finalData,
-		Params:  task,
-	}, nil
+		Data:    finalData, // 这里直接使用包含sources的数组
+		Params:  task,      // 透传原始参数
+	}
+
+	// 记录最终发送的消息内容（用于调试）
+	resultJSON, _ := json.Marshal(resultMessage)
+	logger.Logger.WithFields(logrus.Fields{
+		"requestId":  task.RequestID,
+		"resultSize": len(resultJSON),
+		"resultData": string(resultJSON),
+	}).Info("Final result message ready to send")
+
+	// 额外记录data字段的详细内容
+	dataJSON, _ := json.Marshal(finalData)
+	logger.Logger.WithFields(logrus.Fields{
+		"requestId": task.RequestID,
+		"dataField": string(dataJSON),
+	}).Debug("Data field content")
+
+	return resultMessage, nil
 }
 
 // getTypeString 将type数字转换为字符串
@@ -169,6 +214,15 @@ func cleanPythonOutput(output []byte) string {
 	}
 
 	return str
+}
+
+// getMapKeys 获取map的key列表，用于日志记录
+func getMapKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // ValidatePythonEnvironment 验证Python环境

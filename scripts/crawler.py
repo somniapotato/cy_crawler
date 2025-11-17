@@ -4,16 +4,16 @@ import json
 import sys
 import argparse
 import os
+import logging
+from typing import List, Dict, Any
+
+logging.basicConfig(level=logging.INFO)
 
 # 添加项目根目录到 Python 路径，以便能够找到 scripts 模块
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from scripts.google_search import search_company_on_linkedin_get_link
-from scripts.linkedin_scraper import scrape_company_overview
-from scripts.custom_logger import get_logger
-
-# 为crawler.py创建专用的logger
-log = get_logger()
+from scripts.google_search import search_company_on_linkedin_get_top3, search_person_on_linkedin_get_top3
+from scripts.linkedin_scraper import scrape_company_overview, scrape_profile
 
 def parse_arguments():
     """解析命令行参数"""
@@ -32,75 +32,145 @@ def parse_arguments():
     
     return parser.parse_args()
 
-async def process_company(company_name: str):
-    """处理公司类型的请求"""
+def extract_urls_from_google_items(google_items: List[Dict], search_type: str) -> List[str]:
+    """
+    从Google搜索结果中提取URL，并根据类型过滤
+    
+    Args:
+        google_items: Google搜索结果的items列表
+        search_type: 搜索类型，'company' 或 'person'
+        
+    Returns:
+        符合类型要求的URL列表
+    """
+    urls = []
+    
+    for item in google_items:
+        if 'link' in item:
+            url = item['link']
+            
+            # 根据类型过滤URL
+            if search_type == 'company':
+                # 公司类型：必须是 LinkedIn 公司页面
+                if 'linkedin.com/company/' in url:
+                    urls.append(url)
+                    
+            elif search_type == 'person':
+                # 个人类型：必须是 LinkedIn 个人资料页面
+                if 'linkedin.com/in/' in url:
+                    urls.append(url)
+    
+    return urls
+
+async def process_company(company_name: str) -> Dict[str, Any]:
+    """
+    处理公司类型的请求
+    
+    Returns:
+        包含Google和LinkedIn数据的完整结果结构
+    """
+    result = {
+        "sources": {
+            "google": [],
+            "linkedin": []
+        }
+    }
+    
     try:
-        log.info(f"开始处理公司: {company_name}")
+        # 1. 从Google搜索获取前3个结果（使用公司搜索）
+        google_items = search_company_on_linkedin_get_top3(company_name)
         
-        # 搜索公司LinkedIn链接
-        log.info(f"正在搜索 {company_name} 的LinkedIn链接...")
-        linkedin_url = search_company_on_linkedin_get_link(company_name)
+        if not google_items:
+            # 如果没有Google结果，直接返回空结构
+            return result
         
-        if not linkedin_url:
-            log.error(f"未找到公司 {company_name} 的LinkedIn链接")
-            return None
+        # 将Google结果存入最终结果
+        result["sources"]["google"] = google_items
         
-        log.success(f"找到LinkedIn链接: {linkedin_url}")
+        # 2. 从Google结果中提取URL用于LinkedIn抓取
+        linkedin_urls = extract_urls_from_google_items(google_items, 'company')
         
-        # 抓取公司数据
-        log.info(f"开始抓取公司数据...")
-        companies_data = await scrape_company_overview([linkedin_url])
+        if not linkedin_urls:
+            # 如果没有提取到URL，直接返回Google结果
+            return result
         
-        if not companies_data:
-            log.error(f"未能抓取到公司 {company_name} 的数据")
-            return None
+        # 3. 抓取LinkedIn公司数据
+        linkedin_data = await scrape_company_overview(linkedin_urls)
         
-        log.success(f"成功抓取公司数据")
-        return companies_data[0]  # 返回第一个公司的数据
+        if linkedin_data:
+            # 将LinkedIn数据存入最终结果
+            result["sources"]["linkedin"] = linkedin_data
+        
+        return result
         
     except Exception as e:
-        log.error(f"处理公司 {company_name} 时发生错误: {e}", exc_info=True)
-        return None
+        # 发生错误时返回已有的结果（可能包含部分数据）
+        return result
+
+async def process_person(person_name: str) -> Dict[str, Any]:
+    """
+    处理个人类型的请求
+    
+    Returns:
+        包含Google和LinkedIn数据的完整结果结构
+    """
+    result = {
+        "sources": {
+            "google": [],
+            "linkedin": []
+        }
+    }
+    
+    try:
+        # 1. 从Google搜索获取前3个结果（使用个人搜索）
+        google_items = search_person_on_linkedin_get_top3(person_name)
+        
+        if not google_items:
+            # 如果没有Google结果，直接返回空结构
+            return result
+        
+        # 将Google结果存入最终结果
+        result["sources"]["google"] = google_items
+        
+        # 2. 从Google结果中提取URL用于LinkedIn抓取
+        linkedin_urls = extract_urls_from_google_items(google_items, 'person')
+        
+        if not linkedin_urls:
+            # 如果没有提取到URL，直接返回Google结果
+            return result
+        
+        # 3. 抓取LinkedIn个人资料数据
+        linkedin_data = await scrape_profile(linkedin_urls)
+        
+        if linkedin_data:
+            # 将LinkedIn数据存入最终结果
+            result["sources"]["linkedin"] = linkedin_data
+        
+        return result
+        
+    except Exception as e:
+        # 发生错误时返回已有的结果（可能包含部分数据）
+        return result
 
 async def main():
     """主函数 - 根据命令行参数处理请求"""
     # 解析命令行参数
     args = parse_arguments()
     
-    # 构建日志信息，只显示提供的参数
-    log_info_parts = [f"类型: {args.type}", f"名称: {args.name}"]
-    if args.url:
-        log_info_parts.append(f"网址: {args.url}")
-    if args.email:
-        log_info_parts.append(f"邮箱: {args.email}")
-    if args.country:
-        log_info_parts.append(f"国家: {args.country}")
-    
-    log.info(f"收到请求 - {', '.join(log_info_parts)}")
-    
     # 根据类型处理
     if args.type == 'person':
-        log.info("类型为 person，跳过处理")
-        # 输出空的JSON对象表示不处理
-        print(json.dumps({}, ensure_ascii=False))
-        return
+        # 处理个人类型
+        result = await process_person(args.name)
+        print(json.dumps(result, ensure_ascii=False))
     
     elif args.type == 'company':
         # 处理公司类型
         result = await process_company(args.name)
-        
-        if result:
-            # 输出JSON结果到标准输出
-            print(json.dumps(result, ensure_ascii=False))
-        else:
-            # 输出空的JSON对象表示处理失败
-            print(json.dumps({}, ensure_ascii=False))
+        print(json.dumps(result, ensure_ascii=False))
     
     else:
-        log.error(f"未知的类型: {args.type}")
-        print(json.dumps({}, ensure_ascii=False))
+        print(json.dumps({"sources": {"google": [], "linkedin": []}}, ensure_ascii=False))
 
-# python crawler.py --type company --name "biogenex"
 if __name__ == "__main__":
     # 运行异步主函数
     asyncio.run(main())

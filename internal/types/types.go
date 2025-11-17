@@ -29,11 +29,6 @@ type PythonResult struct {
 	Sources map[string]interface{} `json:"sources"`
 }
 
-// FinalResult 最终返回给MQ的数据结构
-type FinalResult struct {
-	Sources map[string]interface{} `json:"sources"`
-}
-
 // Config 应用配置
 type Config struct {
 	RocketMQ struct {

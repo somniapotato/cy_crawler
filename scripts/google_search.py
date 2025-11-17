@@ -1,7 +1,7 @@
 import os
 import requests
 import toml
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import urllib.parse
 from .custom_logger import get_logger
 
@@ -51,6 +51,42 @@ class GoogleSearchAPI:
         if not self.search_engine_id:
             raise ValueError("Google Search Engine ID not found. Please set GOOGLE_SEARCH_ENGINE_ID environment variable or add it to config.toml")
     
+    def search_linkedin(self, query: str, search_type: str = 'company') -> Dict[str, Any]:
+        """
+        搜索LinkedIn上的信息
+        
+        Args:
+            query: 搜索查询
+            search_type: 搜索类型，'company' 或 'person'
+            
+        Returns:
+            Google Custom Search API的响应结果
+        """
+        # 根据类型构建查询字符串
+        if search_type == 'company':
+            search_query = f"{query} site:linkedin.com/company"
+        elif search_type == 'person':
+            search_query = f"{query} site:linkedin.com/in"
+        else:
+            search_query = f"{query} site:linkedin.com"
+        
+        # 构建请求参数
+        params = {
+            'key': self.api_key,
+            'cx': self.search_engine_id,
+            'q': search_query
+        }
+        
+        try:
+            log.info(f"Searching for {search_type}: {query}")
+            response = requests.get(self.base_url, params=params)
+            response.raise_for_status()
+            log.success(f"Successfully searched for {search_type}: {query}")
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            log.error(f"Error making request to Google Search API for {query}: {e}")
+            raise
+    
     def search_company_linkedin(self, company_name: str) -> Dict[str, Any]:
         """
         搜索公司在LinkedIn上的信息
@@ -61,25 +97,70 @@ class GoogleSearchAPI:
         Returns:
             Google Custom Search API的响应结果
         """
-        # 构建查询字符串：公司名 + site:linkedin.com
-        query = f"{company_name} site:linkedin.com"
+        return self.search_linkedin(company_name, 'company')
+    
+    def search_person_linkedin(self, person_name: str) -> Dict[str, Any]:
+        """
+        搜索个人在LinkedIn上的信息
         
-        # 构建请求参数
-        params = {
-            'key': self.api_key,
-            'cx': self.search_engine_id,
-            'q': query
-        }
+        Args:
+            person_name: 个人名称，如 "John Doe"
+            
+        Returns:
+            Google Custom Search API的响应结果
+        """
+        return self.search_linkedin(person_name, 'person')
+    
+    def search_linkedin_get_top3(self, query: str, search_type: str = 'company') -> List[Dict[str, Any]]:
+        """
+        搜索LinkedIn上的信息，并返回前3个结果
         
+        Args:
+            query: 搜索查询
+            search_type: 搜索类型，'company' 或 'person'
+            
+        Returns:
+            前3个搜索结果的列表，如果没有结果则返回空列表
+        """
         try:
-            log.info(f"Searching for company: {company_name}")
-            response = requests.get(self.base_url, params=params)
-            response.raise_for_status()
-            log.success(f"Successfully searched for company: {company_name}")
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            log.error(f"Error making request to Google Search API for {company_name}: {e}")
-            raise
+            result = self.search_linkedin(query, search_type)
+            
+            # 检查是否有items字段且不为空
+            if 'items' in result and result['items']:
+                top3_items = result['items'][:3]  # 取前3个结果
+                log.info(f"Found {len(top3_items)} LinkedIn {search_type} results for {query}")
+                return top3_items
+            else:
+                log.warning(f"No LinkedIn {search_type} search results found for '{query}'")
+                return []
+                
+        except Exception as e:
+            log.error(f"Error searching for {search_type} '{query}': {e}")
+            return []
+
+    def search_company_linkedin_get_top3(self, company_name: str) -> List[Dict[str, Any]]:
+        """
+        搜索公司在LinkedIn上的信息，并返回前3个结果
+        
+        Args:
+            company_name: 公司名称，如 "nokia"
+            
+        Returns:
+            前3个搜索结果的列表，如果没有结果则返回空列表
+        """
+        return self.search_linkedin_get_top3(company_name, 'company')
+
+    def search_person_linkedin_get_top3(self, person_name: str) -> List[Dict[str, Any]]:
+        """
+        搜索个人在LinkedIn上的信息，并返回前3个结果
+        
+        Args:
+            person_name: 个人名称，如 "John Doe"
+            
+        Returns:
+            前3个搜索结果的列表，如果没有结果则返回空列表
+        """
+        return self.search_linkedin_get_top3(person_name, 'person')
     
     def search_company_linkedin_get_link(self, company_name: str) -> Optional[str]:
         """
@@ -108,18 +189,25 @@ class GoogleSearchAPI:
             log.error(f"Error searching for company '{company_name}': {e}")
             return None
     
-    def get_search_url(self, company_name: str) -> str:
+    def get_search_url(self, query: str, search_type: str = 'company') -> str:
         """
         获取搜索URL（用于调试或直接访问）
         
         Args:
-            company_name: 公司名称
+            query: 搜索查询
+            search_type: 搜索类型，'company' 或 'person'
             
         Returns:
             完整的搜索URL
         """
-        query = f"{company_name} site:linkedin.com"
-        encoded_query = urllib.parse.quote_plus(query)
+        if search_type == 'company':
+            search_query = f"{query} site:linkedin.com/company"
+        elif search_type == 'person':
+            search_query = f"{query} site:linkedin.com/in"
+        else:
+            search_query = f"{query} site:linkedin.com"
+            
+        encoded_query = urllib.parse.quote_plus(search_query)
         
         return f"{self.base_url}?key={self.api_key}&cx={self.search_engine_id}&q={encoded_query}"
 
@@ -138,6 +226,18 @@ def search_company_on_linkedin(company_name: str) -> Dict[str, Any]:
     """
     return search_api.search_company_linkedin(company_name)
 
+def search_person_on_linkedin(person_name: str) -> Dict[str, Any]:
+    """
+    搜索个人在LinkedIn上的信息
+    
+    Args:
+        person_name: 个人名称，如 "John Doe"
+        
+    Returns:
+        Google Custom Search API的响应结果
+    """
+    return search_api.search_person_linkedin(person_name)
+
 def search_company_on_linkedin_get_link(company_name: str) -> Optional[str]:
     """
     搜索公司在LinkedIn上的信息，并返回第一个结果的链接
@@ -150,14 +250,39 @@ def search_company_on_linkedin_get_link(company_name: str) -> Optional[str]:
     """
     return search_api.search_company_linkedin_get_link(company_name)
 
-def get_search_url(company_name: str) -> str:
+def search_company_on_linkedin_get_top3(company_name: str) -> List[Dict[str, Any]]:
+    """
+    搜索公司在LinkedIn上的信息，并返回前3个结果
+    
+    Args:
+        company_name: 公司名称，如 "nokia", "microsoft"等
+        
+    Returns:
+        前3个搜索结果的列表
+    """
+    return search_api.search_company_linkedin_get_top3(company_name)
+
+def search_person_on_linkedin_get_top3(person_name: str) -> List[Dict[str, Any]]:
+    """
+    搜索个人在LinkedIn上的信息，并返回前3个结果
+    
+    Args:
+        person_name: 个人名称，如 "John Doe"
+        
+    Returns:
+        前3个搜索结果的列表
+    """
+    return search_api.search_person_linkedin_get_top3(person_name)
+
+def get_search_url(query: str, search_type: str = 'company') -> str:
     """
     获取搜索URL
     
     Args:
-        company_name: 公司名称
+        query: 搜索查询
+        search_type: 搜索类型，'company' 或 'person'
         
     Returns:
         完整的搜索URL字符串
     """
-    return search_api.get_search_url(company_name)
+    return search_api.get_search_url(query, search_type)

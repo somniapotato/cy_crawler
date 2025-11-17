@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -13,13 +12,6 @@ import (
 	"github.com/apache/rocketmq-client-go/v2/consumer"
 	"github.com/apache/rocketmq-client-go/v2/primitive"
 )
-
-type ResultMessage struct {
-	Success bool        `json:"success"`
-	Data    interface{} `json:"data,omitempty"`
-	Error   string      `json:"error,omitempty"`
-	TaskID  string      `json:"task_id,omitempty"`
-}
 
 func main() {
 	// RocketMQ配置
@@ -58,28 +50,13 @@ func main() {
 				fmt.Printf("Topic: %s\n", msg.Topic)
 				fmt.Printf("Born Time: %s\n", time.Unix(msg.BornTimestamp/1000, 0).Format("2006-01-02 15:04:05"))
 				fmt.Printf("Store Time: %s\n", time.Unix(msg.StoreTimestamp/1000, 0).Format("2006-01-02 15:04:05"))
-				fmt.Printf("Body: %s\n", string(msg.Body))
-
-				// 解析结果消息
-				var result ResultMessage
-				if err := json.Unmarshal(msg.Body, &result); err == nil {
-					fmt.Printf("\n--- Parsed Result ---\n")
-					fmt.Printf("Success: %t\n", result.Success)
-					if result.Error != "" {
-						fmt.Printf("Error: %s\n", result.Error)
-					}
-					if result.TaskID != "" {
-						fmt.Printf("Task ID: %s\n", result.TaskID)
-					}
-					if result.Data != nil {
-						fmt.Printf("Data: \n")
-						dataJSON, _ := json.MarshalIndent(result.Data, "", "  ")
-						fmt.Printf("%s\n", string(dataJSON))
-					}
-				} else {
-					fmt.Printf("Failed to parse result message: %s\n", err.Error())
-				}
-
+				fmt.Printf("Queue ID: %d\n", msg.Queue.QueueId)
+				fmt.Printf("Broker: %s\n", msg.Queue.BrokerName)
+				fmt.Printf("Reconsume Times: %d\n", msg.ReconsumeTimes)
+				fmt.Printf("Body Length: %d bytes\n", len(msg.Body))
+				fmt.Printf("\n--- Raw Body Content ---\n")
+				fmt.Printf("%s\n", string(msg.Body))
+				fmt.Printf("--- End of Body ---\n")
 				fmt.Printf("==============================\n\n")
 			}
 			return consumer.ConsumeSuccess, nil
