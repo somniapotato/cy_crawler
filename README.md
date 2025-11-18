@@ -68,7 +68,9 @@ cy_crawler/
   ```bash
 export GOOGLE_SEARCH_API_KEY="your_google_api_key"
 export GOOGLE_SEARCH_ENGINE_ID="your_search_engine_id"
-export SCRAPFLY_API_KEY="your_scrapfly_api_key
+export SCRAPFLY_API_KEY="your_scrapfly_api_key"
+export ROCKETMQ_ACCESS_KEY="your_mq_access_key"
+export ROCKETMQ_SECRET_KEY="your_mq_secret_key"
    ```
 
 5. **构建项目**

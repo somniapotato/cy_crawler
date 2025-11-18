@@ -229,3 +229,6 @@ tramp
 # Local development configuration
 .local.env
 .env.local
+configs/config.local.toml
+configs/*.local.*
+
