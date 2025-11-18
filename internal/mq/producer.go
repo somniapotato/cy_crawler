@@ -5,6 +5,7 @@ import (
 	"cy_crawler/internal/logger"
 	"cy_crawler/internal/types"
 	"encoding/json"
+	"fmt"
 
 	"github.com/apache/rocketmq-client-go/v2"
 	"github.com/apache/rocketmq-client-go/v2/primitive"
@@ -17,20 +18,31 @@ type Producer struct {
 	config *types.Config
 }
 
-// NewProducer 创建新的生产者
+// NewProducer 创建支持阿里云的生产者
 func NewProducer(config *types.Config) (*Producer, error) {
-	p, err := rocketmq.NewProducer(
-		producer.WithGroupName(config.RocketMQ.ProducerGroup),
-		producer.WithNameServer([]string{config.RocketMQ.NameServer}),
+	// 阿里云 RocketMQ 配置
+	endpoints := config.RocketMQ.Common.Endpoints
+
+	// 创建生产者选项
+	opts := []producer.Option{
+		producer.WithGroupName(config.RocketMQ.BGCheck.Consumer.Group + "_producer"),
+		producer.WithNameServer([]string{endpoints}),
 		producer.WithRetry(2),
-	)
+		producer.WithCredentials(primitive.Credentials{
+			AccessKey: config.RocketMQ.Common.AccessKey,
+			SecretKey: config.RocketMQ.Common.SecretKey,
+		}),
+		producer.WithNamespace(config.RocketMQ.Common.InstanceID),
+	}
+
+	p, err := rocketmq.NewProducer(opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create producer: %v", err)
 	}
 
 	err = p.Start()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to start producer: %v", err)
 	}
 
 	return &Producer{
@@ -47,7 +59,7 @@ func (p *Producer) SendResult(result *types.ResultMessage) error {
 	}
 
 	msg := &primitive.Message{
-		Topic: p.config.RocketMQ.ProducerTopic,
+		Topic: p.config.RocketMQ.BGCheck.Producer.Topic,
 		Body:  data,
 	}
 

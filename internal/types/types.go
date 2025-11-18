@@ -32,11 +32,22 @@ type PythonResult struct {
 // Config 应用配置
 type Config struct {
 	RocketMQ struct {
-		NameServer    string `toml:"name_server"`
-		ConsumerGroup string `toml:"consumer_group"`
-		ProducerGroup string `toml:"producer_group"`
-		ConsumerTopic string `toml:"consumer_topic"`
-		ProducerTopic string `toml:"producer_topic"`
+		Common struct {
+			Endpoints  string `toml:"endpoints"`
+			AccessKey  string `toml:"access_key"`
+			SecretKey  string `toml:"secret_key"`
+			InstanceID string `toml:"instance_id"`
+		} `toml:"common"`
+		BGCheck struct {
+			Consumer struct {
+				Topic string `toml:"topic"`
+				Group string `toml:"group"`
+				Tag   string `toml:"tag"`
+			} `toml:"consumer"`
+			Producer struct {
+				Topic string `toml:"topic"`
+			} `toml:"producer"`
+		} `toml:"bgCheck"`
 	} `toml:"rocketmq"`
 
 	Log struct {

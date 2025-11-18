@@ -41,5 +41,21 @@ func LoadConfig(configPath string) (*types.Config, error) {
 		return nil, err
 	}
 
+	// 处理环境变量覆盖 - 只覆盖access_key和secret_key
+	overrideConfigWithEnv(&config)
+
 	return &config, nil
+}
+
+// overrideConfigWithEnv 使用环境变量覆盖配置
+func overrideConfigWithEnv(config *types.Config) {
+	// 优先从环境变量读取 access_key
+	if envAccessKey := os.Getenv("ROCKETMQ_ACCESS_KEY"); envAccessKey != "" {
+		config.RocketMQ.Common.AccessKey = envAccessKey
+	}
+
+	// 优先从环境变量读取 secret_key
+	if envSecretKey := os.Getenv("ROCKETMQ_SECRET_KEY"); envSecretKey != "" {
+		config.RocketMQ.Common.SecretKey = envSecretKey
+	}
 }

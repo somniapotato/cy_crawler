@@ -1,16 +1,23 @@
 [google_search]
-api_key = "AIzaSyBG7XDGI-*****************"
-search_engine_id = "*****************"
+api_key = "AIzaSyBG7XDGI-dummy"
+search_engine_id = "dummy"
 
 [scrapfly]
-api_key = "scp-test-*****************"
+api_key = "scp-test-dummy"
 
-[rocketmq]
-name_server = "127.0.0.1:9876"
-consumer_group = "crawler_consumer"
-producer_group = "crawler_producer"
-consumer_topic = "crawler_tasks"
-producer_topic = "crawler_tasks_result"
+[rocketmq.common]
+endpoints = "http://MQ_INST_1625550118601853_BZenvcEe.cn-hangzhou.mq.aliyuncs.com:80"
+access_key = "dummy"
+secret_key = "dummy"
+instance_id = "MQ_INST_1625550118601853_BZenvcEe"
+
+[rocketmq.bgCheck.consumer]
+topic = "dev_search_task_request"
+group = "dev_group_search_task_request"
+tag = "*"
+
+[rocketmq.bgCheck.producer]
+topic = "dev_search_task_response"
 
 [log]
 level = "info"

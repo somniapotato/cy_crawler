@@ -6,6 +6,7 @@ import (
 	"cy_crawler/internal/types"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/apache/rocketmq-client-go/v2"
 	"github.com/apache/rocketmq-client-go/v2/consumer"
@@ -18,17 +19,28 @@ type Consumer struct {
 	config *types.Config
 }
 
-// NewConsumer 创建新的消费者
+// NewConsumer 创建支持阿里云的消费者
 func NewConsumer(config *types.Config, messageHandler func(*types.TaskMessage) error) (*Consumer, error) {
-	c, err := rocketmq.NewPushConsumer(
-		consumer.WithGroupName(config.RocketMQ.ConsumerGroup),
-		consumer.WithNameServer([]string{config.RocketMQ.NameServer}),
+	// 阿里云 RocketMQ 配置
+	endpoints := config.RocketMQ.Common.Endpoints
+
+	// 创建消费者选项
+	opts := []consumer.Option{
+		consumer.WithGroupName(config.RocketMQ.BGCheck.Consumer.Group),
+		consumer.WithNameServer([]string{endpoints}),
 		consumer.WithConsumerModel(consumer.Clustering),
-		consumer.WithConsumeFromWhere(consumer.ConsumeFromLastOffset), // 明确从最新位置开始
-		consumer.WithConsumerOrder(true),                              // 顺序消费
-	)
+		consumer.WithConsumeFromWhere(consumer.ConsumeFromLastOffset),
+		consumer.WithCredentials(primitive.Credentials{
+			AccessKey: config.RocketMQ.Common.AccessKey,
+			SecretKey: config.RocketMQ.Common.SecretKey,
+		}),
+		consumer.WithNamespace(config.RocketMQ.Common.InstanceID),
+	}
+
+	// 创建消费者
+	c, err := rocketmq.NewPushConsumer(opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create consumer: %v", err)
 	}
 
 	consumerInst := &Consumer{
@@ -36,13 +48,19 @@ func NewConsumer(config *types.Config, messageHandler func(*types.TaskMessage) e
 		config: config,
 	}
 
-	// 注册消息处理函数 - 使用正确的selector
-	selector := consumer.MessageSelector{
-		Type:       consumer.TAG,
-		Expression: "*",
+	// 使用配置中的tag
+	tag := config.RocketMQ.BGCheck.Consumer.Tag
+	if tag == "" {
+		tag = "*"
 	}
 
-	err = c.Subscribe(config.RocketMQ.ConsumerTopic, selector,
+	// 注册消息处理函数
+	selector := consumer.MessageSelector{
+		Type:       consumer.TAG,
+		Expression: tag,
+	}
+
+	err = c.Subscribe(config.RocketMQ.BGCheck.Consumer.Topic, selector,
 		func(ctx context.Context, msgs ...*primitive.MessageExt) (consumer.ConsumeResult, error) {
 			for _, msg := range msgs {
 				if err := consumerInst.handleMessage(msg, messageHandler); err != nil {
@@ -51,14 +69,13 @@ func NewConsumer(config *types.Config, messageHandler func(*types.TaskMessage) e
 						"msgId": msg.MsgId,
 						"error": err.Error(),
 					}).Error("Failed to handle message")
-					// 继续处理其他消息，不返回错误
 				}
 			}
 			return consumer.ConsumeSuccess, nil
 		})
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to subscribe: %v", err)
 	}
 
 	return consumerInst, nil
@@ -120,7 +137,29 @@ func (c *Consumer) validateTaskMessage(msg *types.TaskMessage) error {
 
 // Start 启动消费者
 func (c *Consumer) Start() error {
-	return c.client.Start()
+	// 添加启动重试逻辑
+	var err error
+	maxRetries := 3
+
+	for i := 0; i < maxRetries; i++ {
+		err = c.client.Start()
+		if err == nil {
+			logger.Logger.Info("Consumer started successfully")
+			return nil
+		}
+
+		logger.Logger.WithFields(logrus.Fields{
+			"attempt":    i + 1,
+			"maxRetries": maxRetries,
+			"error":      err.Error(),
+		}).Warn("Failed to start consumer, retrying...")
+
+		if i < maxRetries-1 {
+			time.Sleep(2 * time.Second)
+		}
+	}
+
+	return fmt.Errorf("failed to start consumer after %d attempts: %v", maxRetries, err)
 }
 
 // Shutdown 关闭消费者
