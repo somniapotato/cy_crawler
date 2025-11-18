@@ -184,8 +184,11 @@ make run       # 运行项目
 make clean     # 清理构建文件
 make test      # 运行测试
 make setup     # 安装依赖
-
+or 
 make clean & make build & make run
+
+# 在 macOS 或 Windows 上编译 Linux 程序
+GOOS=linux GOARCH=amd64 go build -o bin/cy_crawler-linux ./cmd/cy_crawler
 ```
 
 ## 故障排除
