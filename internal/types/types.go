@@ -9,7 +9,7 @@ type TaskMessage struct {
 	CompanyWebsite     string `json:"companyWebsite"`
 	ContactPersonName  string `json:"contactPersonName"`
 	EmailAddress       string `json:"emailAddress"`
-	Type               string `json:"type"` // "1": 公司, "2": 个人
+	Type               int    `json:"type"` // 1: 公司, 2: 个人
 	Location           string `json:"location"`
 	Position           string `json:"position"`
 	ImportExperience   string `json:"importExperience"`

@@ -19,8 +19,8 @@ def parse_arguments():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(description='LinkedIn Company Crawler')
     
-    parser.add_argument('--type', required=True, choices=['1', '2'],
-                       help='类型: "1" 代表公司, "2" 代表个人')
+    parser.add_argument('--type', required=True, choices=['company', 'person'],
+                       help='类型: company 或 person')
     parser.add_argument('--name', required=True, 
                        help='名称: 字符串')
     parser.add_argument('--url', required=False, default='',
@@ -158,13 +158,13 @@ async def main():
     args = parse_arguments()
     
     # 根据类型处理
-    if args.type == '2':
-        # 处理个人类型 (2 = person)
+    if args.type == 'person':
+        # 处理个人类型
         result = await process_person(args.name)
         print(json.dumps(result, ensure_ascii=False))
     
-    elif args.type == '1':
-        # 处理公司类型 (1 = company)
+    elif args.type == 'company':
+        # 处理公司类型
         result = await process_company(args.name)
         print(json.dumps(result, ensure_ascii=False))
     
