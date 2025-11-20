@@ -35,14 +35,14 @@ func (p *Processor) ProcessTask(task *types.TaskMessage) (*types.ResultMessage, 
 
 	// 根据type决定name参数
 	nameParam := task.CompanyName
-	if task.Type == 2 { // 个人
+	if task.Type == "2" { // 个人
 		nameParam = task.ContactPersonName
 	}
 
 	// 构建命令行参数
 	args := []string{
 		p.pythonScriptPath,
-		"--type", getTypeString(task.Type),
+		"--type", task.Type,
 		"--name", nameParam,
 		"--url", task.CompanyWebsite,
 	}
@@ -172,16 +172,6 @@ func (p *Processor) ProcessTask(task *types.TaskMessage) (*types.ResultMessage, 
 	}).Debug("Data field content")
 
 	return resultMessage, nil
-}
-
-// getTypeString 将type数字转换为字符串
-func getTypeString(typeNum int) string {
-	if typeNum == 1 {
-		return "company"
-	} else if typeNum == 2 {
-		return "person"
-	}
-	return "unknown"
 }
 
 // cleanPythonOutput 清理Python脚本输出
