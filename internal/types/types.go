@@ -1,19 +1,39 @@
 package types
 
+import "errors"
+
 // TaskMessage 从MQ接收的任务消息（新格式）
 type TaskMessage struct {
-	RequestID          string `json:"requestId"`
-	RequestTime        string `json:"requestTime"`
-	TenantID           string `json:"tenantId"`
-	CompanyName        string `json:"companyName"`
-	CompanyWebsite     string `json:"companyWebsite"`
-	ContactPersonName  string `json:"contactPersonName"`
-	EmailAddress       string `json:"emailAddress"`
-	Type               int    `json:"type"` // 1: 公司, 2: 个人
-	Location           string `json:"location"`
-	Position           string `json:"position"`
-	ImportExperience   string `json:"importExperience"`
-	IndustryExperience string `json:"industryExperience"`
+	RequestID          string  `json:"requestId"`
+	RequestTime        string  `json:"requestTime"`
+	TenantID           string  `json:"tenantId"`
+	CompanyName        *string `json:"companyName,omitempty"`
+	CompanyWebsite     *string `json:"companyWebsite,omitempty"`
+	ContactPersonName  *string `json:"contactPersonName,omitempty"`
+	EmailAddress       *string `json:"emailAddress,omitempty"`
+	Type               int     `json:"type"` // 1: 公司, 2: 个人
+	Location           *string `json:"location,omitempty"`
+	Position           *string `json:"position,omitempty"`
+	ImportExperience   *string `json:"importExperience,omitempty"`
+	IndustryExperience *string `json:"industryExperience,omitempty"`
+}
+
+// Validate 验证 TaskMessage 的必填字段
+func (tm *TaskMessage) Validate() error {
+	// 根据 type 验证条件性必填字段
+	switch tm.Type {
+	case 1:
+		// type = 1 时，CompanyName 必填
+		if tm.CompanyName == nil || *tm.CompanyName == "" {
+			return errors.New("当 type=1 时，CompanyName 为必填字段")
+		}
+	case 2:
+		// type = 2 时，ContactPersonName 必填
+		if tm.ContactPersonName == nil || *tm.ContactPersonName == "" {
+			return errors.New("当 type=2 时，ContactPersonName 为必填字段")
+		}
+	}
+	return nil
 }
 
 // ResultMessage 处理结果消息（新格式）

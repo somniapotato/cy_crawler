@@ -25,18 +25,32 @@ func NewProcessor(pythonScriptPath string) *Processor {
 
 // ProcessTask 处理任务
 func (p *Processor) ProcessTask(task *types.TaskMessage) (*types.ResultMessage, error) {
+	companyNameStr := ""
+	if task.CompanyName != nil {
+		companyNameStr = *task.CompanyName
+	}
+	locationStr := ""
+	if task.Location != nil {
+		locationStr = *task.Location
+	}
+
 	logger.Logger.WithFields(logrus.Fields{
 		"requestId":   task.RequestID,
 		"tenantId":    task.TenantID,
-		"companyName": task.CompanyName,
+		"companyName": companyNameStr,
 		"type":        task.Type,
-		"location":    task.Location,
+		"location":    locationStr,
 	}).Info("Processing task")
 
 	// 根据type决定name参数
-	nameParam := task.CompanyName
+	var nameParam string
+	if task.CompanyName != nil {
+		nameParam = *task.CompanyName
+	}
 	if task.Type == 2 { // 个人
-		nameParam = task.ContactPersonName
+		if task.ContactPersonName != nil {
+			nameParam = *task.ContactPersonName
+		}
 	}
 
 	// 构建命令行参数
@@ -44,14 +58,21 @@ func (p *Processor) ProcessTask(task *types.TaskMessage) (*types.ResultMessage, 
 		p.pythonScriptPath,
 		"--type", getTypeString(task.Type),
 		"--name", nameParam,
-		"--url", task.CompanyWebsite,
 	}
 
-	if task.EmailAddress != "" {
-		args = append(args, "--email", task.EmailAddress)
+	// 处理 CompanyWebsite
+	if task.CompanyWebsite != nil && *task.CompanyWebsite != "" {
+		args = append(args, "--url", *task.CompanyWebsite)
 	}
-	if task.Location != "" {
-		args = append(args, "--country", task.Location)
+
+	// 处理 EmailAddress
+	if task.EmailAddress != nil && *task.EmailAddress != "" {
+		args = append(args, "--email", *task.EmailAddress)
+	}
+
+	// 处理 Location
+	if task.Location != nil && *task.Location != "" {
+		args = append(args, "--country", *task.Location)
 	}
 
 	logger.Logger.WithFields(logrus.Fields{

@@ -123,16 +123,8 @@ func (c *Consumer) validateTaskMessage(msg *types.TaskMessage) error {
 	if msg.Type != 1 && msg.Type != 2 {
 		return fmt.Errorf("type must be 1 (company) or 2 (person)")
 	}
-	if msg.Type == 1 && msg.CompanyName == "" {
-		return fmt.Errorf("companyName is required when type is 1 (company)")
-	}
-	if msg.Type == 2 && msg.ContactPersonName == "" {
-		return fmt.Errorf("contactPersonName is required when type is 2 (person)")
-	}
-	if msg.CompanyWebsite == "" {
-		return fmt.Errorf("companyWebsite field is required")
-	}
-	return nil
+	// 使用 TaskMessage 的 Validate 方法进行条件性必填验证
+	return msg.Validate()
 }
 
 // Start 启动消费者
