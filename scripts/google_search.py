@@ -87,6 +87,64 @@ class GoogleSearchAPI:
             log.error(f"Error making request to Google Search API for {query}: {e}")
             raise
     
+    def search_general(self, query: str) -> List[Dict[str, Any]]:
+        """
+        执行一般Google搜索，不限制LinkedIn站点
+        
+        Args:
+            query: 搜索查询字符串
+            
+        Returns:
+            搜索结果列表（最多3个结果）
+        """
+        try:
+            log.info(f"Searching general Google: {query}")
+            # 输出原始查询字符串
+            log.info(f"Original query string: {query}")
+            
+            # 直接构建非编码的URL（只编码key和cx，不编码q参数）
+            non_encoded_query = query  # 不对q参数进行编码
+            search_url = f"{self.base_url}?key={self.api_key}&cx={self.search_engine_id}&q={non_encoded_query}"
+            
+            # 输出调试URL
+            log.info(f"General search URL: {search_url}")
+            
+            # 直接请求完整URL
+            response = requests.get(search_url)
+            response.raise_for_status()
+            result = response.json()
+            
+            # 检查是否有items字段且不为空
+            if 'items' in result and result['items']:
+                # 只返回前3个结果
+                top3_results = result['items'][:3]
+                log.info(f"Found {len(result['items'])} general search results, returning top 3 for {query}")
+                return top3_results
+            else:
+                log.warning(f"No general search results found for '{query}'")
+                return []
+                
+        except requests.exceptions.RequestException as e:
+            log.error(f"Error making request to Google Search API for general search '{query}': {e}")
+            return []
+    
+    def get_general_search_url(self, query: str) -> str:
+        """
+        获取一般Google搜索的URL（用于调试）
+        
+        Args:
+            query: 搜索查询字符串
+            
+        Returns:
+            完整的搜索URL（使用非编码的q参数）
+        """
+        # 只编码key和cx，不编码q参数
+        encoded_key = urllib.parse.quote(self.api_key, safe='')
+        encoded_cx = urllib.parse.quote(self.search_engine_id, safe='')
+        non_encoded_query = query  # q参数不编码
+        
+        return f"{self.base_url}?key={encoded_key}&cx={encoded_cx}&q={non_encoded_query}"
+    
     def search_company_linkedin(self, company_name: str) -> Dict[str, Any]:
         """
         搜索公司在LinkedIn上的信息
@@ -273,6 +331,18 @@ def search_person_on_linkedin_get_top3(person_name: str) -> List[Dict[str, Any]]
         前3个搜索结果的列表
     """
     return search_api.search_person_linkedin_get_top3(person_name)
+
+def search_general_google(query: str) -> List[Dict[str, Any]]:
+    """
+    执行一般Google搜索，不限制LinkedIn站点
+    
+    Args:
+        query: 搜索查询字符串，如 "biogenex+site:biogenex.com/" 
+        
+    Returns:
+        搜索结果列表，如果没有结果则返回空列表
+    """
+    return search_api.search_general(query)
 
 def get_search_url(query: str, search_type: str = 'company') -> str:
     """
