@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO)
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from scripts.google_search import search_company_on_linkedin_get_top3, search_person_on_linkedin_get_top3, search_general_google
-from scripts.linkedin_scraper import scrape_company_overview, scrape_profile
+from scripts.linkedin_scraper import scrape_company_overview, scrape_profile, scrape_articles
 
 def parse_arguments():
     """解析命令行参数"""
@@ -163,7 +163,14 @@ async def process_linkedin_chain(args, search_type: str) -> Dict[str, Any]:
         if search_type == 'company':
             linkedin_data = await scrape_company_overview(linkedin_urls)
         else:
+            # 对于person类型，并行获取profile数据和文章数据
             linkedin_data = await scrape_profile(linkedin_urls)
+            linkedin_article_data = await scrape_articles(linkedin_urls)
+            
+            # 将文章数据添加到linkedin_data中
+            for i, profile_data in enumerate(linkedin_data):
+                # 将抓取到的文章数据放入posts字段
+                linkedin_data[i]['posts'] = linkedin_article_data
         
         return {"linkedin": linkedin_data}
         

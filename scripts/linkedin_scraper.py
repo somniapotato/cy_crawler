@@ -277,3 +277,25 @@ async def scrape_profile(urls: List[str]) -> List[Dict]:
 async def scrape_profile_overview(urls: List[str]) -> List[Dict]:
     """scrape public linkedin profile pages - overview only (alias for scrape_profile)"""
     return await scrape_profile(urls)
+
+
+def parse_article_page(response: ScrapeApiResponse) -> Dict:
+    """parse individual article data from Linkedin article pages"""
+    selector = response.selector
+    script_data = json.loads(selector.xpath("//script[@type='application/ld+json']/text()").get())
+    script_data["articleBody"] = "".join(selector.xpath("//article/div[@data-test-id='article-content-blocks']/div/p/span/text()").getall())
+    return script_data
+
+async def scrape_articles(urls: List[str]) -> List[Dict]:
+    """scrape Linkedin articles"""
+    to_scrape = [ScrapeConfig(url, asp=True, country="us") for url in urls]
+    data = []
+    # scrape the URLs concurrently
+    async for response in SCRAPFLY.concurrent_scrape(to_scrape):
+        try:
+            data.append(parse_article_page(response))
+        except Exception as e:
+            log.error("An error occured while scraping article pages", e)
+            pass
+    log.success(f"scraped {len(data)} articles from Linkedin")
+    return data
