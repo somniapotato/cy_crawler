@@ -1,0 +1,31 @@
+[google_search]
+api_key = "AIzaSyBG7XDGI-dummy"
+search_engine_id = "dummy"
+
+[scrapfly]
+api_key = "scp-test-dummy"
+
+[rocketmq.common]
+endpoints = "http://localhost:9876"
+access_key = "local"
+secret_key = "local"
+instance_id = ""
+
+[rocketmq.bgCheck.consumer]
+topic = "dev_search_task_request"
+group = "dev_group_search_task_request"
+tag = "*"
+
+[rocketmq.bgCheck.producer]
+topic = "dev_search_task_response"
+
+[log]
+level = "info"
+file_path = "./logs/cy_crawler.log"
+max_size = 100
+max_backups = 10
+max_age = 30
+
+[application]
+python_script_path = "./scripts/run_crawler.py"
+heartbeat_interval = 10

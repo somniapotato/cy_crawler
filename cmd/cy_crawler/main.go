@@ -6,6 +6,7 @@ import (
 	"cy_crawler/internal/mq"
 	"cy_crawler/internal/processor"
 	"cy_crawler/internal/types"
+	"flag"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,8 +15,12 @@ import (
 )
 
 func main() {
+	// 定义命令行参数
+	configPath := flag.String("config", "", "配置文件路径（可选，留空使用默认配置）")
+	flag.Parse()
+
 	// 加载配置
-	cfg, err := config.LoadConfig("")
+	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
 		panic("Failed to load config: " + err.Error())
 	}

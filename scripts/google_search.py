@@ -70,16 +70,16 @@ class GoogleSearchAPI:
         else:
             search_query = f"{query} site:linkedin.com"
         
-        # 构建请求参数
-        params = {
-            'key': self.api_key,
-            'cx': self.search_engine_id,
-            'q': search_query
-        }
-        
         try:
             log.info(f"Searching for {search_type}: {query}")
-            response = requests.get(self.base_url, params=params)
+            # 构建完整的URL（key和cx编码，但search_query不编码）
+            encoded_key = urllib.parse.quote(self.api_key, safe='')
+            encoded_cx = urllib.parse.quote(self.search_engine_id, safe='')
+            full_url = f"{self.base_url}?key={encoded_key}&cx={encoded_cx}&q={search_query}"
+            log.info(f"Final request URL: {full_url}")
+            
+            # 直接请求完整URL
+            response = requests.get(full_url)
             response.raise_for_status()
             log.success(f"Successfully searched for {search_type}: {query}")
             return response.json()

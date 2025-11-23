@@ -152,6 +152,9 @@ async def process_linkedin_chain(args, search_type: str) -> Dict[str, Any]:
         # 2. 从Google结果中提取URL用于LinkedIn抓取
         linkedin_urls = extract_urls_from_google_items(google_items, search_type)
         
+        # 打印linkedin_urls日志
+        logging.info(f"提取的LinkedIn URLs: {linkedin_urls}")
+        
         if not linkedin_urls:
             # 如果没有提取到URL，直接返回空结果
             return {"linkedin": []}
