@@ -11,12 +11,14 @@ import (
 	"github.com/apache/rocketmq-client-go/v2"
 	"github.com/apache/rocketmq-client-go/v2/consumer"
 	"github.com/apache/rocketmq-client-go/v2/primitive"
+	"github.com/apache/rocketmq-client-go/v2/producer"
 	"github.com/sirupsen/logrus"
 )
 
 type Consumer struct {
-	client rocketmq.PushConsumer
-	config *types.Config
+	client        rocketmq.PushConsumer
+	config        *types.Config
+	errorProducer *Producer
 }
 
 // NewConsumer 创建支持阿里云的消费者
@@ -43,9 +45,16 @@ func NewConsumer(config *types.Config, messageHandler func(*types.TaskMessage) e
 		return nil, fmt.Errorf("failed to create consumer: %v", err)
 	}
 
+	// 创建生产者用于发送错误结果
+	errorProducer, err := newProducerFromConsumerConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create error producer: %v", err)
+	}
+
 	consumerInst := &Consumer{
-		client: c,
-		config: config,
+		client:        c,
+		config:        config,
+		errorProducer: errorProducer,
 	}
 
 	// 使用配置中的tag
@@ -63,12 +72,12 @@ func NewConsumer(config *types.Config, messageHandler func(*types.TaskMessage) e
 	err = c.Subscribe(config.RocketMQ.BGCheck.Consumer.Topic, selector,
 		func(ctx context.Context, msgs ...*primitive.MessageExt) (consumer.ConsumeResult, error) {
 			for _, msg := range msgs {
-				if err := consumerInst.handleMessage(msg, messageHandler); err != nil {
+				if err := consumerInst.handleMessageWithErrorHandling(msg, messageHandler); err != nil {
 					logger.Logger.WithFields(logrus.Fields{
 						"topic": msg.Topic,
 						"msgId": msg.MsgId,
 						"error": err.Error(),
-					}).Error("Failed to handle message")
+					}).Error("Failed to handle message with error handling")
 				}
 			}
 			return consumer.ConsumeSuccess, nil
@@ -81,8 +90,41 @@ func NewConsumer(config *types.Config, messageHandler func(*types.TaskMessage) e
 	return consumerInst, nil
 }
 
-// handleMessage 处理单个消息
-func (c *Consumer) handleMessage(msg *primitive.MessageExt, handler func(*types.TaskMessage) error) error {
+// newProducerFromConsumerConfig 创建用于错误处理的生产者
+func newProducerFromConsumerConfig(config *types.Config) (*Producer, error) {
+	// 阿里云 RocketMQ 配置
+	endpoints := config.RocketMQ.Common.Endpoints
+
+	// 创建生产者选项
+	opts := []producer.Option{
+		producer.WithGroupName(config.RocketMQ.BGCheck.Consumer.Group + "_error_producer"),
+		producer.WithNameServer([]string{endpoints}),
+		producer.WithRetry(2),
+		producer.WithCredentials(primitive.Credentials{
+			AccessKey: config.RocketMQ.Common.AccessKey,
+			SecretKey: config.RocketMQ.Common.SecretKey,
+		}),
+		producer.WithNamespace(config.RocketMQ.Common.InstanceID),
+	}
+
+	p, err := rocketmq.NewProducer(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create error producer: %v", err)
+	}
+
+	err = p.Start()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start error producer: %v", err)
+	}
+
+	return &Producer{
+		client: p,
+		config: config,
+	}, nil
+}
+
+// handleMessageWithErrorHandling 带错误处理的消息处理函数
+func (c *Consumer) handleMessageWithErrorHandling(msg *primitive.MessageExt, handler func(*types.TaskMessage) error) error {
 	logger.Logger.WithFields(logrus.Fields{
 		"topic": msg.Topic,
 		"msgId": msg.MsgId,
@@ -96,6 +138,10 @@ func (c *Consumer) handleMessage(msg *primitive.MessageExt, handler func(*types.
 			"body":  string(msg.Body),
 			"error": err.Error(),
 		}).Error("Failed to parse message body")
+
+		// 构建JSON解析错误结果
+		errorResult := types.BuildErrorResult(types.CodeBadRequest, fmt.Sprintf("JSON解析失败: %v", err), &taskMsg)
+		_ = c.sendErrorResult(errorResult)
 		return err
 	}
 
@@ -106,10 +152,33 @@ func (c *Consumer) handleMessage(msg *primitive.MessageExt, handler func(*types.
 			"task":  taskMsg,
 			"error": err.Error(),
 		}).Error("Invalid task message")
+
+		// 构建验证错误结果
+		errorResult := types.BuildValidationErrorResult(err.Error(), &taskMsg)
+		_ = c.sendErrorResult(errorResult)
 		return err
 	}
 
+	// 正常处理任务
 	return handler(&taskMsg)
+}
+
+// sendErrorResult 发送错误结果到MQ
+func (c *Consumer) sendErrorResult(result *types.ResultMessage) error {
+	if c.errorProducer == nil {
+		logger.Logger.WithFields(logrus.Fields{
+			"code":    result.Code,
+			"message": result.Message,
+		}).Error("Error producer is nil, cannot send error result")
+		return fmt.Errorf("error producer is nil")
+	}
+
+	return c.errorProducer.SendResult(result)
+}
+
+// handleMessage 旧的函数保留以兼容
+func (c *Consumer) handleMessage(msg *primitive.MessageExt, handler func(*types.TaskMessage) error) error {
+	return c.handleMessageWithErrorHandling(msg, handler)
 }
 
 // validateTaskMessage 验证任务消息
@@ -156,5 +225,8 @@ func (c *Consumer) Start() error {
 
 // Shutdown 关闭消费者
 func (c *Consumer) Shutdown() error {
+	if c.errorProducer != nil {
+		c.errorProducer.Shutdown()
+	}
 	return c.client.Shutdown()
 }

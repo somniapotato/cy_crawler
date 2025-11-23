@@ -48,31 +48,52 @@ func main() {
 	}
 	defer producer.Shutdown()
 
-	// 消息处理函数
+	// 消息处理函数 - 使用defer确保所有错误都返回到MQ
 	messageHandler := func(task *types.TaskMessage) error {
-		result, err := proc.ProcessTask(task)
-		if err != nil {
-			logger.Logger.WithFields(logrus.Fields{
-				"requestId": task.RequestID,
-				"task":      task,
-				"error":     err.Error(),
-			}).Error("Task processing failed")
+		var result *types.ResultMessage
+		var err error
 
-			// 发送失败结果 - 使用新的ResultMessage格式
-			errorResult := &types.ResultMessage{
-				Code:    500,
-				Message: err.Error(),
-				Data:    nil,
-				Params:  task,
+		// 使用defer来确保任何错误都会被发送回MQ
+		defer func() {
+			if err != nil && result != nil {
+				// 如果有错误且result不为空，直接发送
+				logger.Logger.WithFields(logrus.Fields{
+					"requestId": task.RequestID,
+					"task":      task,
+					"code":      result.Code,
+					"message":   result.Message,
+					"error":     err.Error(),
+				}).Error("Task processing failed")
+				_ = producer.SendResult(result)
+			} else if err != nil && result == nil {
+				// 如果有错误但没有result，构建默认错误结果
+				errorResult := types.BuildErrorResult(types.CodeInternalServerError, err.Error(), task)
+				logger.Logger.WithFields(logrus.Fields{
+					"requestId": task.RequestID,
+					"task":      task,
+					"code":      errorResult.Code,
+					"message":   errorResult.Message,
+					"error":     err.Error(),
+				}).Error("Task processing failed")
+				_ = producer.SendResult(errorResult)
+			} else if result != nil {
+				// 成功处理，发送结果
+				logger.Logger.WithFields(logrus.Fields{
+					"requestId": task.RequestID,
+					"task":      task,
+					"code":      result.Code,
+					"message":   result.Message,
+				}).Info("Task processed successfully")
+				_ = producer.SendResult(result)
 			}
-			return producer.SendResult(errorResult)
-		}
+		}()
 
-		// 发送成功结果
-		return producer.SendResult(result)
+		// 正常处理任务
+		result, err = proc.ProcessTask(task)
+		return err
 	}
 
-	// 初始化消费者 - 使用FinalConsumer
+	// 初始化消费者
 	consumer, err := mq.NewConsumer(cfg, messageHandler)
 	if err != nil {
 		logger.Logger.WithError(err).Fatal("Failed to create consumer")

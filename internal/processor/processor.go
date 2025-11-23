@@ -108,12 +108,7 @@ func (p *Processor) ProcessTask(task *types.TaskMessage) (*types.ResultMessage, 
 			"stderr":    string(errorOutput),
 		}).Error("Failed to execute Python script")
 
-		return &types.ResultMessage{
-			Code:    500,
-			Message: fmt.Sprintf("Python script execution failed: %v", err),
-			Data:    nil,
-			Params:  task,
-		}, err
+		return types.BuildPythonErrorResult(err, task), err
 	}
 
 	// 如果有stderr输出但命令成功，记录警告
@@ -142,12 +137,7 @@ func (p *Processor) ProcessTask(task *types.TaskMessage) (*types.ResultMessage, 
 			"error":         err.Error(),
 		}).Error("Failed to parse Python script output")
 
-		return &types.ResultMessage{
-			Code:    500,
-			Message: fmt.Sprintf("Failed to parse script output: %v", err),
-			Data:    nil,
-			Params:  task,
-		}, err
+		return types.BuildErrorResult(types.CodeBadGateway, fmt.Sprintf("Failed to parse script output: %v", err), task), err
 	}
 
 	// 记录解析后的Python结果
