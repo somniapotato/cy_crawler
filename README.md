@@ -158,7 +158,28 @@ heartbeat_interval = 10
 ```
 
 错误响应：
-to do
+```json
+{
+    "code": 500,
+    "message": "{error message}",
+    "data": [
+    ],
+    "params": { #透传原来的请求参数
+        "requestId": "a11abd3e-0363-4327-a6fc-554c0700811c",
+        "requestTime": "2025-11-20 19:43:04",
+        "tenantId": "122",
+        "companyName": "大老板公司",
+        "companyWebsite": "www.tesla.com",
+        "contactPersonName": "杜旭",
+        "emailAddress": "duxu111@163.com",
+        "type": 1,
+        "location": "",
+        "position": "",
+        "importExperience": "",
+        "industryExperience": ""
+    }
+}
+```
 
 ## 测试工具
 
@@ -168,15 +189,84 @@ to do
 
 ```bash
 # 实时消费 crawler_tasks_result 中的结果
-go run test_consumer.go
+go run test/test_consumer/test_consumer.go
 ```
 
 ### 测试Python脚本
 
 ```bash
 # 单独测试Python爬虫脚本
-python crawler.py --type company --name "biogenex"
+python scripts/crawler.py --type company --name "biogenex"
 ```
+
+### MQ消息发送工具
+
+**mq_sender_app** 是一个基于Web界面的MQ消息发送工具，支持通过浏览器发送测试消息到RocketMQ。
+
+#### 编译和运行
+
+```bash
+# 进入目录
+cd test/mq_sender_app
+
+# 编译应用程序
+go build -o mq_sender main.go
+
+# 设置必要的环境变量
+export ROCKETMQ_ACCESS_KEY="your_mq_access_key"
+export ROCKETMQ_SECRET_KEY="your_mq_secret_key"
+
+# 运行应用
+./mq_sender
+
+# 或者使用go run直接运行
+ROCKETMQ_ACCESS_KEY="your_mq_access_key" ROCKETMQ_SECRET_KEY="your_mq_secret_key" go run main.go
+```
+
+#### 使用说明
+
+1. **启动服务**：运行应用后，Web服务将在 http://localhost:8080 启动
+
+2. **访问Web界面**：
+   - 本地访问：http://localhost:8080
+   - 网络访问：http://你的IP地址:8080
+
+3. **发送消息**：
+   - 在Web界面中输入JSON格式的测试消息
+   - 点击"发送消息"按钮
+   - 查看发送结果
+
+#### 消息格式示例
+
+```json
+{
+    "requestId": "req_1640995200",
+    "requestTime": "2021-12-31T23:59:59Z",
+    "tenantId": "tenant_001",
+    "companyName": "示例公司",
+    "companyWebsite": "https://example.com",
+    "contactPersonName": "张三",
+    "emailAddress": "zhangsan@example.com",
+    "type": 1,
+    "location": "北京",
+    "position": "软件工程师",
+    "importExperience": "3年以上",
+    "industryExperience": "互联网"
+}
+```
+
+#### 环境变量配置
+
+- `ROCKETMQ_ACCESS_KEY`：RocketMQ访问密钥（必需）
+- `ROCKETMQ_SECRET_KEY`：RocketMQ密钥（必需）
+- `SERVER_HOST`：服务器监听地址（默认：0.0.0.0）
+- `SERVER_PORT`：服务器端口（默认：8080）
+
+#### 注意事项
+
+- 确保RocketMQ服务正常运行
+- 验证Topic `dev_search_task_request` 已创建
+- 检查网络防火墙设置，允许8080端口访问
 
 ## Makefile 命令
 
@@ -211,9 +301,18 @@ GOOS=linux GOARCH=amd64 go build -o bin/cy_crawler-linux ./cmd/cy_crawler
    - 确保Python脚本只输出纯JSON格式
    - 检查是否有额外的print语句或调试输出
 
+4. **MQ发送工具连接失败**
+   - 检查ROCKETMQ_ACCESS_KEY和ROCKETMQ_SECRET_KEY环境变量
+   - 验证网络连接和防火墙设置
+   - 确认RocketMQ实例状态正常
+
 ### 日志查看
 
-应用日志位于 `logs/cy_crawler.log`，包含：
+- **主应用日志**：`tail -f logs/cy_crawler.log`
+- **MQ发送工具日志**：控制台输出
+- **RocketMQ Dashboard**：监控MQ状态
+
+应用日志包含：
 - 应用启动和关闭信息
 - 消息消费和处理记录
 - Python脚本执行结果
@@ -251,6 +350,13 @@ def main():
 2. 更新处理器以支持新的消息格式
 3. 修改Python脚本处理新的任务类型
 
+### 自定义MQ发送工具
+
+- 修改 `test/mq_sender_app/main.go` 中的配置
+- 调整Web界面样式和布局
+- 添加新的消息格式验证
+- 集成更多的MQ功能
+
 ## 监控和维护
 
 ### 系统监控
@@ -258,6 +364,7 @@ def main():
 - 查看应用日志：`tail -f logs/cy_crawler.log`
 - 监控RocketMQ状态：使用RocketMQ Dashboard
 - 检查系统资源使用情况
+- 监控MQ发送工具的Web界面状态
 
 ### 性能优化建议
 
@@ -265,6 +372,7 @@ def main():
 2. **优化Python脚本**: 减少Python脚本执行时间
 3. **消息批量处理**: 考虑实现消息批量处理机制
 4. **连接池管理**: 优化数据库和HTTP连接池
+5. **MQ发送工具**: 可以考虑添加消息队列和批量发送功能
 
 ## 贡献
 
