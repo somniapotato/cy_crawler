@@ -170,7 +170,7 @@ async def process_linkedin_chain(args, search_type: str) -> Dict[str, Any]:
             # 将文章数据添加到linkedin_data中
             for i, profile_data in enumerate(linkedin_data):
                 # 将抓取到的文章数据放入posts字段
-                linkedin_data[i]['posts'] = linkedin_article_data
+                linkedin_data[i]['posts'] = linkedin_article_data[i]
         
         return {"linkedin": linkedin_data}
         
